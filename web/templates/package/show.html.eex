@@ -27,7 +27,7 @@ tools = Keyword.take(tools, compatible_tools)
     <span class="version"><%= @current_release.version %></span>
     <% end %>
   </h2>
-  <%= if description = @package.meta["description"] do %>
+  <%= if description do %>
     <p class="package-description">
       <%= text_to_html(description) %>
     </p>
@@ -61,7 +61,7 @@ tools = Keyword.take(tools, compatible_tools)
             <img src="<%= static_path(HexWeb.Endpoint, "/images/stat-calendar.png") %>" alt="calendar">
             <span class="stat-info">
               <span class="count-info">
-                <%= human_number_space @release_downloads || 0 %>
+                <%= human_number_space(if @release_downloads, do: @release_downloads.downloads, else: 0) %>
               </span> <br>
               downloads of this version
             </span>
@@ -70,7 +70,7 @@ tools = Keyword.take(tools, compatible_tools)
             <img src="<%= static_path(HexWeb.Endpoint, "/images/stat-calendar.png") %>" alt="calendar">
             <span class="stat-info">
               <span class="count-info">
-                <%= human_number_space @downloads[:day] || 0 %>
+                <%= human_number_space(@downloads["day"] || 0) %>
               </span> <br>
               downloads yesterday
             </span>
@@ -79,7 +79,7 @@ tools = Keyword.take(tools, compatible_tools)
             <img src="<%= static_path(HexWeb.Endpoint, "/images/stat-calendar.png") %>" alt="calendar">
             <span class="stat-info">
               <span class="count-info">
-                <%= human_number_space @downloads[:week] || 0 %>
+                <%= human_number_space(@downloads["week"] || 0) %>
               </span> <br>
               downloads last seven days
             </span>
@@ -88,7 +88,7 @@ tools = Keyword.take(tools, compatible_tools)
             <img src="<%= static_path(HexWeb.Endpoint, "/images/stat-calendar.png") %>" alt="calendar">
             <span class="stat-info">
               <span class="count-info">
-                <%= human_number_space @downloads[:all] || 0 %>
+                <%= human_number_space(@downloads["all"] || 0) %>
               </span> <br>
               downloads all time
             </span>
@@ -123,7 +123,7 @@ tools = Keyword.take(tools, compatible_tools)
             <%= if @current_release do %>
               <%= for { name, _app, req, optional } <- @current_release.requirements do %>
               <li>
-                <a href="<%= package_path(HexWeb.Endpoint, :show, req.name)"><%= name %></a> <%= req %>
+                <a href="<%= package_path(HexWeb.Endpoint, :show, req.name) %>"><%= name %></a> <%= req %>
                 <%= if optional do %>(optional)<% end %>
               </li>
               <% end %>
@@ -132,7 +132,7 @@ tools = Keyword.take(tools, compatible_tools)
         </div>
       </div>
     </div>
-    
+
     <div class="col-md-3">
       <h3>Config</h3>
       <%= for {tool, file} <- tools do %>
