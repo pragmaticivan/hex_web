@@ -77,13 +77,17 @@ defmodule HexWeb.Web do
         Key,
         Package,
         PackageDownload,
+        PackageMetadata,
         PackageOwner,
         Registry,
         Release,
         ReleaseDownload,
+        ReleaseMetadata,
         Requirement,
         User
       }
+
+      import HexWeb.SharedHelpers
     end
   end
 

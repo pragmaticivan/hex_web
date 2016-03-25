@@ -23,26 +23,28 @@ defmodule HexWeb.StatsJobTest do
   end
 
   test "counts all downloads" do
-    buckets = Application.get_env(:hex_web, :logs_buckets)
     {bucket, region} =
-      if buckets do
-        Application.put_env(:hex_web, :store, HexWeb.Store.S3)
+      if buckets = Application.get_env(:hex_web, :logs_buckets) do
         [[bucket, region]] = buckets
         {bucket, region}
       else
-        buckets = [[nil, nil]]
         {nil, nil}
       end
+
+    buckets = [[bucket, region]]
 
     path     = Path.join([__DIR__, "..", "fixtures"])
     logfile1 = File.read!(Path.join(path, "s3_logs_1.txt"))
     logfile2 = File.read!(Path.join(path, "s3_logs_2.txt"))
-    store    = Application.get_env(:hex_web, :store)
+    logfile3 = File.read!(Path.join(path, "fastly_logs_1.txt")) |> :zlib.gzip
+    logfile4 = File.read!(Path.join(path, "fastly_logs_2.txt")) |> :zlib.gzip
 
-    store.put_logs(region, bucket, "hex/2013-11-01-21-32-16-E568B2907131C0C0", logfile1)
-    store.put_logs(region, bucket, "hex/2013-11-02-21-32-17-E568B2907131C0C0", logfile1)
-    store.put_logs(region, bucket, "hex/2013-11-03-21-32-18-E568B2907131C0C0", logfile1)
-    store.put_logs(region, bucket, "hex/2013-11-01-21-32-19-E568B2907131C0C0", logfile2)
+    HexWeb.Store.put_logs(region, bucket, "hex/2013-11-01-21-32-16-E568B2907131C0C0", logfile1)
+    HexWeb.Store.put_logs(region, bucket, "hex/2013-11-02-21-32-17-E568B2907131C0C0", logfile1)
+    HexWeb.Store.put_logs(region, bucket, "hex/2013-11-03-21-32-18-E568B2907131C0C0", logfile1)
+    HexWeb.Store.put_logs(region, bucket, "hex/2013-11-01-21-32-19-E568B2907131C0C0", logfile2)
+    HexWeb.Store.put_logs(region, bucket, "fastly_hex/2013-11-01T14:00:00.000-tzletcEGGiI7atIAAAAA.log.gz", logfile3)
+    HexWeb.Store.put_logs(region, bucket, "fastly_hex/2013-11-01T15:00:00.000-tzletcEGGiI7atIAAAAA.log.gz", logfile4)
 
     HexWeb.StatsJob.run({2013, 11, 1}, buckets)
 
@@ -57,11 +59,9 @@ defmodule HexWeb.StatsJobTest do
     downloads = HexWeb.Repo.all(HexWeb.Download)
     assert length(downloads) == 4
 
-    assert Enum.find(downloads, &(&1.release_id == rel1.id)).downloads == 5
-    assert Enum.find(downloads, &(&1.release_id == rel2.id)).downloads == 2
-    assert Enum.find(downloads, &(&1.release_id == rel3.id)).downloads == 2
+    assert Enum.find(downloads, &(&1.release_id == rel1.id)).downloads == 11
+    assert Enum.find(downloads, &(&1.release_id == rel2.id)).downloads == 3
+    assert Enum.find(downloads, &(&1.release_id == rel3.id)).downloads == 3
     assert Enum.find(downloads, &(&1.release_id == rel4.id)).downloads == 1
-  after
-    Application.put_env(:hex_web, :store, HexWeb.Store.Local)
   end
 end

@@ -2,15 +2,14 @@ use Mix.Config
 
 config :hex_web,
   user_confirm: false,
-  store:        HexWeb.Store.Local,
-  email:        HexWeb.Email.Local,
   secret:       "796f75666f756e64746865686578",
   docs_url:     System.get_env("HEX_DOCS_URL") || "http://localhost:4043",
   cdn_url:      System.get_env("HEX_CDN_URL")  || "http://localhost:4043",
   secret:       System.get_env("HEX_SECRET")   || "796f75666f756e64746865686578"
 
 config :hex_web, HexWeb.Endpoint,
-  http: [port: 4043]
+  http: [port: 4043],
+  debug_errors: false
 
 config :hex_web, HexWeb.Repo,
   adapter: Ecto.Adapters.Postgres,
@@ -21,4 +20,4 @@ config :hex_web, HexWeb.Repo,
   pool_size: 10
 
 config :logger,
-  level: :warn
+  level: :error

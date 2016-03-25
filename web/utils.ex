@@ -44,8 +44,8 @@ defmodule HexWeb.Utils do
 
   def safe_search(string) do
     string
-    |> String.replace(~r/\//, " ")
-    |> String.replace(~r/[^\w\s]/, "")
+    |> String.replace(~r/\//u, " ")
+    |> String.replace(~r/[^\w\s]/u, "")
     |> String.strip
   end
 
@@ -121,7 +121,11 @@ defmodule HexWeb.Utils do
   @doc """
   Returns a url to a resource on the docs site from a list of path components.
   """
+  @spec docs_url(HexWeb.Package.t, HexWeb.Release.t) :: String.t
   @spec docs_url([String.t] | String.t) :: String.t
+  def docs_url(package, release) do
+    docs_url([package.name, to_string(release.version)])
+  end
   def docs_url(path) do
     Application.get_env(:hex_web, :docs_url) <> "/" <> Path.join(List.wrap(path)) <> "/"
   end
@@ -178,28 +182,6 @@ defmodule HexWeb.Utils do
     result.status
   end
 
-  def mix_snippet_version(%Version{major: 0, minor: minor, patch: patch, pre: []}),
-    do: "~> 0.#{minor}.#{patch}"
-  def mix_snippet_version(%Version{major: major, minor: minor, pre: []}),
-    do: "~> #{major}.#{minor}"
-  def mix_snippet_version(%Version{major: major, minor: minor, patch: patch, pre: pre}),
-    do: "~> #{major}.#{minor}.#{patch}#{pre_snippet(pre)}"
-
-  def rebar_snippet_version(%Version{major: major, minor: minor, patch: patch, pre: pre}),
-    do: "#{major}.#{minor}.#{patch}#{pre_snippet(pre)}"
-
-  def erlang_mk_snippet_version(%Version{major: major, minor: minor, patch: patch, pre: pre}),
-    do: "#{major}.#{minor}.#{patch}#{pre_snippet(pre)}"
-
-  defp pre_snippet([]), do: ""
-  defp pre_snippet(pre) do
-    "-" <>
-      Enum.map_join(pre, ".", fn
-        int when is_integer(int) -> Integer.to_string(int)
-        string when is_binary(string) -> string
-      end)
-  end
-
   @publish_timeout 5 * 60 * 1000
 
   if Mix.env in [:test, :hex] do
@@ -240,7 +222,31 @@ defmodule HexWeb.Utils do
     [entry | _ ] = :public_key.pem_decode(key)
     key = :public_key.pem_entry_decode(entry)
 
-    :public_key.sign({:digest, file}, :sha512, key)
+    :public_key.sign(file, :sha512, key)
     |> Base.encode16(case: :lower)
+  end
+
+  def verify(file, signature, key) do
+    [entry | _] = :public_key.pem_decode(key)
+    key         = :public_key.pem_entry_decode(entry)
+    signature   = Base.decode16!(signature, case: :lower)
+
+    :public_key.verify(file, :sha512, signature, key)
+  end
+
+  def parse_ip("-") do
+    nil
+  end
+  def parse_ip(ip) do
+    parts = String.split(ip, ".") |> Enum.map(&String.to_integer/1)
+    for part <- parts, into: <<>>, do: <<part>>
+  end
+
+  defmacro defdispatch({function, _, args}, to: target) do
+    quote do
+      def unquote(function)(unquote_splicing(args)) do
+        unquote(target).unquote(function)(unquote_splicing(args))
+      end
+    end
   end
 end

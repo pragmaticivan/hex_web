@@ -4,15 +4,14 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="A package manager for the Erlang ecosystem">
+    <meta name="description" content="<%= description(assigns) %>">
 
     <title><%= title(assigns) %></title>
 
-    <link rel="search" type="application/opensearchdescription+xml" title="Hex" href="/hexsearch.xml">
+    <link rel="search" type="application/opensearchdescription+xml" title="Hex" href="<%= static_path(HexWeb.Endpoint, "/hexsearch.xml") %>">
     <link href='https://fonts.googleapis.com/css?family=Lato:400,300,700,900,100' rel='stylesheet' type='text/css'>
     <link rel="stylesheet" href="<%= static_path(HexWeb.Endpoint, "/css/main.css") %>">
-    <link rel="shortcut icon" href="/favicon.png">
-
+    <link rel="shortcut icon" href="<%= static_path(HexWeb.Endpoint, "/favicon.png") %>">
   </head>
   <body>
     <!--[if lt IE 10]>
@@ -29,27 +28,28 @@
             <span class="icon-bar"></span>
           </button>
           <a class="navbar-brand" href="/">
-            <span style="font-size: 24px;"><img src="/images/hex-logo.png"></span> Hex
+            <span style="font-size: 24px;"><img src="<%= static_path(HexWeb.Endpoint, "/images/hex.png") %>" srcset="<%= static_path(HexWeb.Endpoint, "/images/hex.png") %> 1x, <%= static_path(HexWeb.Endpoint, "/images/hex@2.png") %> 2x, <%= static_path(HexWeb.Endpoint, "/images/hex@3.png") %> 3x"></span>
           </a>
         </div>
         <div id="navbar" class="navbar-collapse collapse">
           <ul class="nav navbar-nav navbar-right">
-            <li><a href="/packages">Packages</a></li>
+            <li><a href="<%= package_path(HexWeb.Endpoint, :index) %>">Packages</a></li>
             <li class="dropdown">
               <a href="#" class="dropdown-toggle" data-toggle="dropdown">Documentation <b class="caret"></b></a>
               <ul class="dropdown-menu">
                 <li class="dropdown-header menu-dropdown-header">Mix</li>
-                <li><a href="/docs/usage">Usage</a></li>
-                <li><a href="/docs/publish">Publishing packages</a></li>
-                <li><a href="/docs/tasks">Tasks</a></li>
+                <li><a href="<%= docs_path(HexWeb.Endpoint, :usage) %>">Usage</a></li>
+                <li><a href="<%= docs_path(HexWeb.Endpoint, :publish) %>">Publishing packages</a></li>
+                <li><a href="<%= docs_path(HexWeb.Endpoint, :tasks) %>">Tasks</a></li>
                 <li role="separator" class="divider"></li>
                 <li class="dropdown-header menu-dropdown-header">Rebar3</li>
-                <li><a href="/docs/rebar3_usage">Usage</a></li>
-                <li><a href="/docs/rebar3_publish">Publishing packages</a></li>
+                <li><a href="<%= docs_path(HexWeb.Endpoint, :rebar3_usage) %>">Usage</a></li>
+                <li><a href="<%= docs_path(HexWeb.Endpoint, :rebar3_publish) %>">Publishing packages</a></li>
                 <li><a href="http://www.rebar3.org/v3.0/docs/hex-package-management">Tasks</a></li>
                 <li role="separator" class="divider"></li>
-                <li><a href="/docs/codeofconduct">Code of Conduct</a></li>
-                <li><a href="/docs/mirrors">Mirrors</a></li>
+                <li><a href="<%= docs_path(HexWeb.Endpoint, :coc) %>">Code of Conduct</a></li>
+                <li><a href="<%= docs_path(HexWeb.Endpoint, :mirrors) %>">Mirrors</a></li>
+                <li><a href="<%= docs_path(HexWeb.Endpoint, :public_keys) %>">Public keys</a></li>
               </ul>
             </li>
           </ul>

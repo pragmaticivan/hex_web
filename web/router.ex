@@ -30,14 +30,15 @@ defmodule HexWeb.Router do
     post "password/reset",          PasswordController, :reset
     get  "password/confirm",        PasswordController, :show_confirm
 
-    get  "docs/usage",              DocsController,     :show_usage
-    get  "docs/rebar3_usage",       DocsController,     :show_rebar3_usage
-    get  "docs/publish",            DocsController,     :show_publish
-    get  "docs/rebar3_publish",     DocsController,     :show_rebar3_publish
-    get  "docs/tasks",              DocsController,     :show_tasks
-    get  "docs/codeofconduct",      DocsController,     :show_coc
-    get  "docs/faq",                DocsController,     :show_faq
-    get  "docs/mirrors",            DocsController,     :show_mirrors
+    get  "docs/usage",              DocsController,     :usage
+    get  "docs/rebar3_usage",       DocsController,     :rebar3_usage
+    get  "docs/publish",            DocsController,     :publish
+    get  "docs/rebar3_publish",     DocsController,     :rebar3_publish
+    get  "docs/tasks",              DocsController,     :tasks
+    get  "docs/codeofconduct",      DocsController,     :coc
+    get  "docs/faq",                DocsController,     :faq
+    get  "docs/mirrors",            DocsController,     :mirrors
+    get  "docs/public_keys",        DocsController,     :public_keys
 
     get  "packages",                PackageController,  :index
     get  "packages/:name",          PackageController,  :show
@@ -45,6 +46,7 @@ defmodule HexWeb.Router do
   end
 
   scope "/", HexWeb do
+    get "sitemap.xml", SitemapController, :sitemap
     get "installs/hex.ez", InstallerController, :get_archive
 
     # TODO: Check if we can replace this
@@ -53,6 +55,7 @@ defmodule HexWeb.Router do
       get "registry.ets.gz.signed",       TestController, :get_registry_signed
       get "tarballs/:ball",               TestController, :get_tarball
       get "docs/:package/:version/*page", TestController, :get_docs_page
+      get "docs/sitemap.xml",             TestController, :get_docs_sitemap
     end
   end
 
@@ -76,7 +79,7 @@ defmodule HexWeb.Router do
     get    "packages/:name/releases/:version",      ReleaseController, :show
     delete "packages/:name/releases/:version",      ReleaseController, :delete
 
-    # Temporary
+    # Temporary, see #232
     get    "packages/:name/releases/:version/docs", DocsController,    :show
     delete "packages/:name/releases/:version/docs", DocsController,    :delete
 

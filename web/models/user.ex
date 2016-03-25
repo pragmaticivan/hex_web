@@ -19,6 +19,7 @@ defmodule HexWeb.User do
     has_many :package_owners, PackageOwner, foreign_key: :owner_id
     has_many :owned_packages, through: [:package_owners, :package]
     has_many :keys, Key
+    has_many :audit_logs, AuditLog
   end
 
   defp changeset(user, :create, params) do
@@ -37,11 +38,7 @@ defmodule HexWeb.User do
     |> validate_format(:username, ~r"^[a-z0-9_\-\.!~\*'\(\)]+$")
   end
 
-  def create(params, confirmed? \\ nil) do
-    if is_nil(confirmed?) do
-      confirmed? = not Application.get_env(:hex_web, :user_confirm)
-    end
-
+  def create(params, confirmed? \\ not Application.get_env(:hex_web, :user_confirm)) do
     changeset(%User{}, :create, params)
     |> put_change(:confirmation_key, HexWeb.Auth.gen_key())
     |> put_change(:confirmed, confirmed?)
@@ -75,7 +72,7 @@ defmodule HexWeb.User do
       false
   end
 
-  # TODO: Move to with when available in ecto
+  # TODO: Move to multi when available in ecto
   def reset(user, password) do
     HexWeb.Repo.transaction(fn ->
       user = User.update(user, %{password: password})

@@ -10,27 +10,25 @@ defmodule HexWeb.API.ReleaseView do
   def render("release", %{release: release}) do
     package = release.package
 
-    reqs = for {name, app, req, optional} <- release.requirements, into: %{} do
-      {name, %{app: app, requirement: req, optional: optional}}
-    end
+    reqs = Enum.into(release.requirements, %{}, fn req ->
+      {req.name, Map.take(req, ~w(app requirement optional)a)}
+    end)
 
     entity =
       release
-      |> Map.take([:meta, :version, :has_docs, :inserted_at, :updated_at])
+      |> Map.take([:version, :has_docs, :inserted_at, :updated_at])
+      |> Map.put(:meta, Map.take(release.meta, [:app, :build_tools, :elixir]))
       |> Map.put(:url, release_url(HexWeb.Endpoint, :show, package, release))
       |> Map.put(:package_url, package_url(HexWeb.Endpoint, :show, package))
       |> Map.put(:requirements, reqs)
-      |> Enum.into(%{})
-
-    if release.has_docs do
-      entity = Map.put(entity, :docs_url, HexWeb.Utils.docs_tarball_url(package, release))
-    end
-
-    if assoc_loaded?(release.downloads) do
-      downloads = if release.downloads, do: release.downloads.downloads, else: 0
-      entity = Map.put(entity, :downloads, downloads)
-    end
+      |> if_value(release.has_docs, &Map.put(&1, :docs_url, HexWeb.Utils.docs_tarball_url(package, release)))
+      |> if_value(assoc_loaded?(release.downloads), &load_downloads(&1, release))
 
     entity
+  end
+
+  defp load_downloads(entity, release) do
+    downloads = if release.downloads, do: release.downloads.downloads, else: 0
+    Map.put(entity, :downloads, downloads)
   end
 end

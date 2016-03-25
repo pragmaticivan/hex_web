@@ -32,18 +32,17 @@ defmodule HexWeb.PageControllerTest do
     path     = Path.join([__DIR__, "..", "fixtures"])
     logfile1 = File.read!(Path.join(path, "s3_logs_1.txt"))
     logfile2 = File.read!(Path.join(path, "s3_logs_2.txt"))
-    store    = Application.get_env(:hex_web, :store)
 
-    store.put_logs(nil, nil, "hex/2013-11-01-21-32-16-E568B2907131C0C0", logfile1)
-    store.put_logs(nil, nil, "hex/2013-11-01-21-32-19-E568B2907131C0C0", logfile2)
-    HexWeb.StatsJob.run({2013, 11, 1}, [[nil, nil]])
+    HexWeb.Store.put_logs(nil, nil, "hex/2013-12-01-21-32-16-E568B2907131C0C0", logfile1)
+    HexWeb.Store.put_logs(nil, nil, "hex/2013-12-01-21-32-19-E568B2907131C0C0", logfile2)
+    HexWeb.StatsJob.run({2013, 12, 1}, [[nil, nil]])
 
     conn = get conn(), "/"
 
     assert conn.status == 200
     assert conn.assigns[:total]["all"] == 9
     assert conn.assigns[:total]["week"] == 0
-    assert conn.assigns[:package_top] == %{"foo" => 7, "bar" => 2}
+    assert conn.assigns[:package_top] == [{"foo", 7}, {"bar", 2}]
     assert conn.assigns[:num_packages] == 3
     assert conn.assigns[:num_releases] == 6
     assert Enum.count(conn.assigns[:releases_new]) == 6
