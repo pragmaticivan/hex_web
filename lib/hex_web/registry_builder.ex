@@ -55,7 +55,7 @@ defmodule HexWeb.RegistryBuilder do
         build_ets(handle, file)
       end)
 
-      Logger.info "REGISTRY_BUILDER_COMPLETED (#{div time, 1000}ms, #{div memory, 1024}kb)"
+      Logger.warn "REGISTRY_BUILDER_COMPLETED (#{div time, 1000}ms, #{div memory, 1024}kb)"
     catch
       kind, error ->
         stacktrace = System.stacktrace
@@ -109,17 +109,16 @@ defmodule HexWeb.RegistryBuilder do
     :ok = :ets.tab2file(tid, String.to_char_list(file))
     :ets.delete(tid)
 
-    output = File.read!(file)
+    output = File.read!(file) |> :zlib.gzip
 
-    store = Application.get_env(:hex_web, :store)
-    store.put_registry(output)
+    signature =
+      if key = Application.get_env(:hex_web, :signing_key) do
+        HexWeb.Utils.sign(output, key)
+      end
 
-    if key = Application.get_env(:hex_web, :signing_key) do
-      checksum = :crypto.hash(:sha512, output)
-      signature = HexWeb.Utils.sign(checksum, key)
-
-      store.put_registry_signature(signature)
-    end
+    HexWeb.Store.put_registry(output, signature)
+    if signature, do: HexWeb.Store.put_registry_signature(signature)
+    HexWeb.CDN.purge_key(:fastly_hexrepo, "registry")
 
     HexWeb.Registry.set_done(handle)
     |> HexWeb.Repo.update_all([])

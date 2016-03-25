@@ -6,7 +6,6 @@ defmodule HexWeb.Release do
   schema "releases" do
     field :version, HexWeb.Version
     field :checksum, :string
-    field :meta, :map
     field :has_docs, :boolean, default: false
     timestamps
 
@@ -14,26 +13,18 @@ defmodule HexWeb.Release do
     has_many :requirements, Requirement
     has_many :daily_downloads, Download
     has_one :downloads, ReleaseDownload
+    embeds_one :meta, ReleaseMetadata, on_replace: :delete
   end
-
-  @meta_types %{
-    "app"         => :string,
-    "build_tools" => {:array, :string},
-    "elixir"      => :string
-  }
-  @meta_all Map.keys(@meta_types)
-  @meta_required ~w(app build_tools)
 
   defp changeset(release, :create, params) do
     changeset(release, :update, params)
-    |> unique_constraint(:version, name: "releases_package_id_version_key")
+    |> unique_constraint(:version, name: "releases_package_id_version_key", message: "has already been published")
   end
 
   defp changeset(release, :update, params) do
-    cast(release, params, ~w(version meta), [])
+    cast(release, params, ~w(version), [])
+    |> cast_embed(:meta, required: true)
     |> validate_version(:version)
-    |> update_change(:meta, &Map.take(&1, @meta_all))
-    |> validate_meta(:meta, @meta_types, @meta_required)
   end
 
   # TODO: Leave this in until we have multi

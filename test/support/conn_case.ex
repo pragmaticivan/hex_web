@@ -21,7 +21,7 @@ defmodule HexWeb.ConnCase do
       use Phoenix.ConnTest
 
       alias HexWeb.Repo
-      import Ecto.Model
+      import Ecto
       import Ecto.Query, only: [from: 2]
 
       import HexWeb.Router.Helpers
@@ -36,6 +36,11 @@ defmodule HexWeb.ConnCase do
   setup tags do
     unless tags[:async] do
       Ecto.Adapters.SQL.restart_test_transaction(HexWeb.Repo, [])
+    end
+
+    if tags[:integration] && Application.get_env(:hex_web, :s3_bucket) do
+      Application.put_env(:hex_web, :store_impl, HexWeb.Store.S3)
+      on_exit fn -> Application.put_env(:hex_web, :store_impl, HexWeb.Store.Local) end
     end
 
     {:ok, conn: Phoenix.ConnTest.conn()}

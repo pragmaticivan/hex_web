@@ -26,9 +26,9 @@ defmodule HexWeb.Store.Local do
     Path.join("logs", key) |> put(blob)
   end
 
-  def put_registry(data) do
+  def put_registry(data, _signature) do
     File.mkdir_p!(dir)
-    File.write!(Path.join(dir, "registry.ets.gz"), :zlib.gzip(data))
+    File.write!(Path.join(dir, "registry.ets.gz"), data)
   end
 
   def put_registry_signature(signature) do
@@ -37,6 +37,11 @@ defmodule HexWeb.Store.Local do
   end
 
   def send_registry(conn) do
+    conn =
+      case File.read(Path.join(dir, "registry.ets.gz.signed")) do
+        {:ok, contents} -> put_resp_header(conn, "x-hex-signature", contents)
+        _               -> conn
+      end
     send_file(conn, 200, Path.join(dir, "registry.ets.gz"))
   end
 
@@ -44,7 +49,8 @@ defmodule HexWeb.Store.Local do
     send_file(conn, 200, Path.join(dir, "registry.ets.gz.signed"))
   end
 
-  def put_release(name, data) do
+  def put_release(package, version, data) do
+    name = "#{package}-#{version}.tar"
     path = Path.join("tarballs", name)
     put(path, data)
   end
@@ -74,7 +80,12 @@ defmodule HexWeb.Store.Local do
     send_file(conn, path)
   end
 
-  def put_docs_page(path, data) do
+  def put_docs_file(path, data) do
+    path = Path.join("docs_pages", path)
+    put(path, data)
+  end
+
+  def put_docs_page(path, _key, data) do
     path = Path.join("docs_pages", path)
     put(path, data)
   end

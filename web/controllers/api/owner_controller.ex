@@ -1,72 +1,92 @@
 defmodule HexWeb.API.OwnerController do
   use HexWeb.Web, :controller
 
-  def index(conn, %{"name" => name}) do
-    if package = HexWeb.Repo.get_by(Package, name: name) do
-      authorized(conn, [], &package_owner?(package, &1), fn _ ->
-        owners =  Package.owners(package) |> HexWeb.Repo.all
-        conn
-        |> api_cache(:private)
-        |> render(:index, owners: owners)
-      end)
+  plug :fetch_package
+  plug :authorize, fun: &package_owner?/2
+
+  def index(conn, _params) do
+    owners = assoc(conn.assigns.package, :owners) |> HexWeb.Repo.all
+    conn
+    |> api_cache(:private)
+    |> render(:index, owners: owners)
+  end
+
+  def show(conn, %{"email" => email}) do
+    email = URI.decode_www_form(email)
+    owner = HexWeb.Repo.get_by!(User, email: email)
+
+    if package_owner?(conn.assigns.package, owner) do
+      conn
+      |> api_cache(:private)
+      |> send_resp(204, "")
     else
       not_found(conn)
     end
   end
 
-  def show(conn, %{"name" => name, "email" => email}) do
+  def create(conn, %{"email" => email}) do
     email = URI.decode_www_form(email)
+    user = HexWeb.Repo.get_by!(User, email: email)
+    package = conn.assigns.package
 
-    if (package = HexWeb.Repo.get_by(Package, name: name)) &&
-       (owner = HexWeb.Repo.get_by!(User, email: email)) do
-      authorized(conn, [], &package_owner?(package, &1), fn _ ->
-        if package_owner?(package, owner) do
-          conn
-          |> api_cache(:private)
-          |> send_resp(204, "")
+    result =
+      HexWeb.Repo.transaction(fn ->
+        case Package.create_owner(conn.assigns.package, user) |> HexWeb.Repo.insert do
+          {:ok, owner} ->
+            audit(conn, "owner.add", {package, user})
+            owner
+          {:error, changeset} ->
+            HexWeb.Repo.rollback(changeset)
         end
       end)
-    end || not_found(conn)
-  end
 
-  def create(conn, %{"name" => name, "email" => email}) do
-    email = URI.decode_www_form(email)
+    case result do
+      {:ok, _} ->
+        owners = assoc(package, :owners) |> HexWeb.Repo.all
 
-    if (package = HexWeb.Repo.get_by(Package, name: name)) &&
-       (user = HexWeb.Repo.get_by!(User, email: email)) do
-      authorized(conn, [], &package_owner?(package, &1), fn _ ->
-        Package.create_owner(package, user) |> HexWeb.Repo.insert!
+        HexWeb.Mailer.send(
+          "owner_add.html",
+          "Hex.pm - Owner added",
+          Enum.map(owners, fn owner -> owner.email end),
+          username: user.username,
+          email: email,
+          package: package.name)
 
         conn
         |> api_cache(:private)
         |> send_resp(204, "")
-      end)
-    else
-      not_found(conn)
+      {:error, changeset} ->
+        validation_failed(conn, changeset)
     end
   end
 
-  def delete(conn, %{"name" => name, "email" => email}) do
+  def delete(conn, %{"email" => email}) do
     email = URI.decode_www_form(email)
+    owner = HexWeb.Repo.get_by!(User, email: email)
+    package = conn.assigns.package
+    owners = assoc(package, :owners) |> HexWeb.Repo.all
 
-    if (package = HexWeb.Repo.get_by(Package, name: name)) &&
-       (owner = HexWeb.Repo.get_by!(User, email: email)) do
-      authorized(conn, [], &package_owner?(package, &1), fn _ ->
-        if HexWeb.Repo.one!(Package.is_single_owner(package)) do
-          conn
-          |> api_cache(:private)
-          |> send_resp(403, "")
-        else
-          Package.owner(package, owner)
-          |> HexWeb.Repo.delete_all
-
-          conn
-          |> api_cache(:private)
-          |> send_resp(204, "")
-        end
-      end)
+    if length(owners) == 1 do
+      conn
+      |> api_cache(:private)
+      |> send_resp(403, "")
     else
-      not_found(conn)
+      HexWeb.Repo.transaction(fn ->
+        Package.owner(package, owner) |> HexWeb.Repo.delete_all
+        audit(conn, "owner.remove", {package, owner})
+      end)
+
+      HexWeb.Mailer.send(
+        "owner_remove.html",
+        "Hex.pm - Owner removed",
+        Enum.map(owners, fn owner -> owner.email end),
+        username: owner.username,
+        email: email,
+        package: package.name)
+
+      conn
+      |> api_cache(:private)
+      |> send_resp(204, "")
     end
   end
 end

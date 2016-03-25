@@ -1,6 +1,6 @@
 defmodule HexWeb.Package do
   use HexWeb.Web, :model
-  import Ecto.Query, only: [from: 2, exclude: 2, select: 3]
+  import Ecto.Query, only: [from: 2]
 
   @derive {Phoenix.Param, key: :name}
 
@@ -8,12 +8,14 @@ defmodule HexWeb.Package do
 
   schema "packages" do
     field :name, :string
-    field :meta, :map
+    field :docs_updated_at, Ecto.DateTime
     timestamps
 
     has_many :releases, Release
-    has_many :owners, PackageOwner
+    has_many :package_owners, PackageOwner
+    has_many :owners, through: [:package_owners, :owner]
     has_many :downloads, PackageDownload
+    embeds_one :meta, PackageMetadata, on_replace: :delete
   end
 
   @elixir_names ~w(eex elixir ex_unit iex logger mix)
@@ -29,78 +31,16 @@ defmodule HexWeb.Package do
 
   @reserved_names @elixir_names ++ @otp_names ++ @tool_names
 
-  @meta_types %{
-    "maintainers"  => {:array, :string},
-    "licenses"     => {:array, :string},
-    "links"        => {:dict, :string, :string},
-    "description"  => :string
-  }
-
-  @meta_fields Map.keys(@meta_types)
-  @meta_fields_required ~w(description)
-
-  defp validate_meta(changeset, field) do
-    validate_change(changeset, field, fn _field, meta ->
-      errors =
-        Enum.flat_map(@meta_types, fn {sub_field, type} ->
-          type(sub_field, Map.get(meta, sub_field), type)
-        end)
-
-      if errors == [],
-          do: [],
-        else: [{field, errors}]
-    end)
-  end
-
-  defp validate_required_meta(changeset, field) do
-    validate_change(changeset, field, fn _field, meta ->
-      errors =
-        Enum.flat_map(@meta_fields_required, fn field ->
-          if Map.has_key?(meta, field) and is_present(meta[field]) do
-            []
-          else
-            [{field, :missing}]
-          end
-        end)
-
-      if errors == [],
-          do: [],
-        else: [{field, errors}]
-    end)
-  end
-
-  defp is_present(string) when is_binary(string) do
-    (string |> String.strip |> String.length) > 0
-  end
-
-  defp is_present(_string), do: true
-
   defp changeset(package, :create, params) do
     changeset(package, :update, params)
     |> unique_constraint(:name, name: "packages_name_idx")
   end
 
-  # TODO: Drop support for contributors (maintainers released in 0.9.0, date TBD)
-
   defp changeset(package, :update, params) do
-    cast(package, params, ~w(name meta), [])
-    |> update_change(:meta, &rename_key(&1, "contributors", "maintainers"))
-    |> update_change(:meta, &Map.take(&1, @meta_fields))
+    cast(package, params, ~w(name), [])
+    |> cast_embed(:meta, required: true)
     |> validate_format(:name, ~r"^[a-z]\w*$")
     |> validate_exclusion(:name, @reserved_names)
-    |> validate_required_meta(:meta)
-    |> validate_meta(:meta)
-  end
-
-  defp rename_key(map, old_key, new_key) do
-    case Map.fetch(map, old_key) do
-      {:ok, value} ->
-        map
-        |> Map.delete(old_key)
-        |> Map.put(new_key, value)
-      :error ->
-        map
-    end
   end
 
   # TODO: Leave this in until we have multi
@@ -124,29 +64,29 @@ defmodule HexWeb.Package do
     changeset(package, :update, params)
   end
 
-  def owners(package) do
-    from(p in PackageOwner,
-         where: p.package_id == ^package.id,
-         join: u in User, on: u.id == p.owner_id,
-         select: u)
-  end
-
   def is_owner(package, user) do
     from(o in PackageOwner,
          where: o.package_id == ^package.id,
          where: o.owner_id == ^user.id,
-         select: count(o.id) == 1)
+         select: count(o.id) >= 1)
   end
 
-  def is_single_owner(package) do
-    package
-    |> owners
-    |> exclude(:select)
-    |> select([o], count(o.id) == 1)
+  def docs_sitemap do
+    from(p in Package,
+         order_by: p.name,
+         where: not is_nil(p.docs_updated_at),
+         select: {p.name, p.docs_updated_at})
+  end
+
+  def packages_sitemap do
+    from(p in Package,
+         order_by: p.name,
+         select: {p.name, p.updated_at})
   end
 
   def create_owner(package, user) do
-    %PackageOwner{package_id: package.id, owner_id: user.id}
+    change(%PackageOwner{}, package_id: package.id, owner_id: user.id)
+    |> unique_constraint(:owner_id, name: "package_owners_unique", message: "is already owner")
   end
 
   def owner(package, user) do
@@ -180,12 +120,10 @@ defmodule HexWeb.Package do
   end
 
   defp search(query, search) do
-    name_search = like_escape(search, ~r"(%|_)")
-    if String.length(search) >= 3 do
-      name_search = "%" <> name_search <> "%"
-    end
+    name_search = escape_search(search)
+    name_search = if String.length(search) >= 3, do: "%" <> name_search <> "%", else: name_search
 
-    desc_search = String.replace(search, ~r"\s+", " | ")
+    desc_search = String.replace(search, ~r"\s+"u, " | ")
 
     # without fragment("?::text", var.name) the gin_trgm_ops index will not be used
       from var in query,
@@ -194,8 +132,8 @@ defmodule HexWeb.Package do
                     var.meta, ^desc_search)
   end
 
-  defp like_escape(string, escape) do
-    String.replace(string, escape, "\\\\\\1")
+  defp escape_search(search) do
+    String.replace(search, ~r"(%|_)"u, "\\\\\\1")
   end
 
   defp sort(query, :name) do

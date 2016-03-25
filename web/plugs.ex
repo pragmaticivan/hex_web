@@ -9,12 +9,17 @@ defmodule HexWeb.Plugs do
     defexception [plug_status: 408, message: "request timeout"]
   end
 
+  defmodule RequestTooLargeError do
+    defexception [plug_status: 413, message: "request too large"]
+  end
+
   # Max filesize: ~10mb
   # Min upload speed: ~10kb/s
+  # Read 100kb every 10s
   @read_body_opts [
     length: 10_000_000,
-    read_length: 10_000,
-    read_timeout: 1_000
+    read_length: 100_000,
+    read_timeout: 10_000
   ]
 
   def fetch_body(conn, _opts) do
@@ -47,7 +52,7 @@ defmodule HexWeb.Plugs do
       {:error, _} ->
         raise BadRequestError
       {:more, _, _} ->
-        raise Plug.RequestTooLargeError
+        raise RequestTooLargeError
     end
   end
 end
